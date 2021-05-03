@@ -3,7 +3,7 @@
 
 # # Data pre-processing
 
-# In[1]:
+# In[117]:
 
 
 import glob
@@ -13,40 +13,40 @@ import numpy as np
 from sklearn.metrics import mean_squared_error
 
 
-# In[2]:
+# In[118]:
 
 
 ORIGINAL_DIR = "../Original-Data"
 ANALYSIS_DIR = "../Analysis-Data"
 
 
-# In[3]:
+# In[119]:
 
 
 all_files = glob.glob(os.path.join(ORIGINAL_DIR,"*2017.csv")) 
 all_data = pd.concat((pd.read_csv(f) for f in all_files), ignore_index=True)
 
 
-# In[4]:
+# In[120]:
 
 
 all_data.head()
 
 
-# In[5]:
+# In[121]:
 
 
 pm10_df = all_data.filter(regex='UTC time|pm10')
 pm10_df.shape
 
 
-# In[6]:
+# In[122]:
 
 
 pm10_df.head()
 
 
-# In[7]:
+# In[123]:
 
 
 #According to 'Tidy data' rules
@@ -59,77 +59,77 @@ for col_name in pm10_df.iloc[:, 1:]:
     pm10_df_with_id = pm10_df_with_id.append(df_with_id)
 
 
-# In[8]:
+# In[124]:
 
 
 pm10_df_with_id.shape
 
 
-# In[9]:
+# In[125]:
 
 
 pm10_df_with_id.head()
 
 
-# In[10]:
+# In[126]:
 
 
 pm10_df_with_id.id = pm10_df_with_id.id.str.replace('_pm10','').astype(int)
 
 
-# In[11]:
+# In[127]:
 
 
 pm10_df_with_id.head()
 
 
-# In[12]:
+# In[128]:
 
 
 sensors = pd.read_csv(f"{ORIGINAL_DIR}/sensor_locations.csv")
 sensors.head()
 
 
-# In[13]:
+# In[129]:
 
 
 cleaned_data = (pm10_df_with_id.merge(sensors, left_on='id', right_on='id')
        .reindex(columns=['UTC time', 'pm10', 'id', 'latitude', 'longitude']))
 
 
-# In[14]:
+# In[130]:
 
 
 cleaned_data.head()
 
 
-# In[15]:
+# In[131]:
 
 
 #Remove unnecessary columns
 cleaned_data.drop('id', inplace=True, axis=1)
 
 
-# In[16]:
+# In[132]:
 
 
 cleaned_data.head()
 
 
-# In[17]:
+# In[133]:
 
 
 cleaned_data['pm10'].isnull().sum()
 
 
-# In[18]:
+# In[134]:
 
 
 #Remove missing rows
 cleaned_data.dropna(subset = ["pm10"], inplace=True)
 
 
-# In[19]:
+# In[135]:
 
 
 cleaned_data.rename(columns={'UTC time': 'datetime'}, inplace=True)
@@ -137,13 +137,13 @@ cleaned_data.datetime = pd.to_datetime(cleaned_data.datetime)
 cleaned_data.head()
 
 
-# In[20]:
+# In[136]:
 
 
 cleaned_data.shape
 
 
-# In[21]:
+# In[137]:
 
 
 cleaned_data['datetime'].value_counts()
@@ -151,7 +151,7 @@ cleaned_data['datetime'].value_counts()
 
 # # Algorithm
 
-# In[22]:
+# In[138]:
 
 
 from photutils.utils import ShepardIDWInterpolator as idw
@@ -160,7 +160,7 @@ from typing import NewType
 import matplotlib.pyplot as plt
 
 
-# In[23]:
+# In[139]:
 
 
 def get_data(dataframe, time):
@@ -181,34 +181,34 @@ def get_data(dataframe, time):
 
 # I chose _2017-03-17 13:00:00_  because it contains the most data (50 samples)
 
-# In[24]:
+# In[140]:
 
 
 MAX_NEIGHBORS = 15
-POWER_RANGE = np.arange(0.1, 1.0, 0.1)
+POWER_RANGE = np.arange(0.1, 5.0, 0.2)
 
 
-# In[25]:
+# In[141]:
 
 
 selected = get_data(cleaned_data, '2017-03-17 13:00:00')
 
 
-# In[26]:
+# In[142]:
 
 
 X_train, X_test, y_train, y_test = train_test_split(selected[["latitude","longitude"]].values, 
                                                     selected["pm10"].values, test_size=0.2, random_state=42)
 
 
-# In[27]:
+# In[143]:
 
 
 # Run idw interpolator
 f = idw(X_train, y_train)
 
 
-# In[28]:
+# In[144]:
 
 
 for n_neighbors in range(3, MAX_NEIGHBORS):
@@ -219,12 +219,12 @@ for n_neighbors in range(3, MAX_NEIGHBORS):
         rmse = mean_squared_error(y_test, predictions, squared = False)
         power_list.append(power)
         rmse_list.append(rmse)
+    plt.rcParams["figure.figsize"] = (20,20)
     plt.plot(power_list, rmse_list, label=n_neighbors)
 plt.grid()
 plt.xlabel('power')
 plt.ylabel('RMSE')
 plt.legend(title="n_neighbors")
-plt.rcParams["figure.figsize"] = (15,15)
 plt.show()
 
 
@@ -232,7 +232,7 @@ plt.show()
 
 # _We will now check which value of the power parameter will produce the best results for n_neihbors equal to 4._
 
-# In[29]:
+# In[145]:
 
 
 for n_neighbors in range(3, MAX_NEIGHBORS):
@@ -246,12 +246,12 @@ for n_neighbors in range(3, MAX_NEIGHBORS):
         power_list.append(power)
         rmse_list.append(rmse)
         print(f"{power:.1f} \t\t {rmse:.4f}")
+    plt.rcParams["figure.figsize"] = (5,5)
     plt.plot(power_list, rmse_list, label=n_neighbors)
     plt.grid()
     plt.xlabel('power')
     plt.ylabel('RMSE')
     plt.legend(title="n_neighbors")
-    plt.rcParams["figure.figsize"] = (5,5)
     plt.show()
 
 
