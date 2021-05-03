@@ -3,7 +3,7 @@
 
 # # Data pre-processing
 
-# In[117]:
+# In[204]:
 
 
 import glob
@@ -13,40 +13,40 @@ import numpy as np
 from sklearn.metrics import mean_squared_error
 
 
-# In[118]:
+# In[205]:
 
 
 ORIGINAL_DIR = "../Original-Data"
 ANALYSIS_DIR = "../Analysis-Data"
 
 
-# In[119]:
+# In[206]:
 
 
 all_files = glob.glob(os.path.join(ORIGINAL_DIR,"*2017.csv")) 
 all_data = pd.concat((pd.read_csv(f) for f in all_files), ignore_index=True)
 
 
-# In[120]:
+# In[207]:
 
 
 all_data.head()
 
 
-# In[121]:
+# In[208]:
 
 
 pm10_df = all_data.filter(regex='UTC time|pm10')
 pm10_df.shape
 
 
-# In[122]:
+# In[209]:
 
 
 pm10_df.head()
 
 
-# In[123]:
+# In[210]:
 
 
 #According to 'Tidy data' rules
@@ -59,77 +59,77 @@ for col_name in pm10_df.iloc[:, 1:]:
     pm10_df_with_id = pm10_df_with_id.append(df_with_id)
 
 
-# In[124]:
+# In[211]:
 
 
 pm10_df_with_id.shape
 
 
-# In[125]:
+# In[212]:
 
 
 pm10_df_with_id.head()
 
 
-# In[126]:
+# In[213]:
 
 
 pm10_df_with_id.id = pm10_df_with_id.id.str.replace('_pm10','').astype(int)
 
 
-# In[127]:
+# In[214]:
 
 
 pm10_df_with_id.head()
 
 
-# In[128]:
+# In[215]:
 
 
 sensors = pd.read_csv(f"{ORIGINAL_DIR}/sensor_locations.csv")
 sensors.head()
 
 
-# In[129]:
+# In[216]:
 
 
 cleaned_data = (pm10_df_with_id.merge(sensors, left_on='id', right_on='id')
        .reindex(columns=['UTC time', 'pm10', 'id', 'latitude', 'longitude']))
 
 
-# In[130]:
+# In[217]:
 
 
 cleaned_data.head()
 
 
-# In[131]:
+# In[218]:
 
 
 #Remove unnecessary columns
 cleaned_data.drop('id', inplace=True, axis=1)
 
 
-# In[132]:
+# In[219]:
 
 
 cleaned_data.head()
 
 
-# In[133]:
+# In[220]:
 
 
 cleaned_data['pm10'].isnull().sum()
 
 
-# In[134]:
+# In[221]:
 
 
 #Remove missing rows
 cleaned_data.dropna(subset = ["pm10"], inplace=True)
 
 
-# In[135]:
+# In[222]:
 
 
 cleaned_data.rename(columns={'UTC time': 'datetime'}, inplace=True)
@@ -137,13 +137,13 @@ cleaned_data.datetime = pd.to_datetime(cleaned_data.datetime)
 cleaned_data.head()
 
 
-# In[136]:
+# In[223]:
 
 
 cleaned_data.shape
 
 
-# In[137]:
+# In[224]:
 
 
 cleaned_data['datetime'].value_counts()
@@ -151,7 +151,7 @@ cleaned_data['datetime'].value_counts()
 
 # # Algorithm
 
-# In[138]:
+# In[225]:
 
 
 from photutils.utils import ShepardIDWInterpolator as idw
@@ -160,7 +160,7 @@ from typing import NewType
 import matplotlib.pyplot as plt
 
 
-# In[139]:
+# In[226]:
 
 
 def get_data(dataframe, time):
@@ -181,41 +181,53 @@ def get_data(dataframe, time):
 
 # I chose _2017-03-17 13:00:00_  because it contains the most data (50 samples)
 
-# In[140]:
+# In[227]:
 
 
 MAX_NEIGHBORS = 15
 POWER_RANGE = np.arange(0.1, 5.0, 0.2)
 
 
-# In[141]:
+# In[228]:
 
 
-selected = get_data(cleaned_data, '2017-03-17 13:00:00')
+selected_samples = get_data(cleaned_data, '2017-03-17 13:00:00')
 
 
-# In[142]:
+# In[229]:
 
 
-X_train, X_test, y_train, y_test = train_test_split(selected[["latitude","longitude"]].values, 
-                                                    selected["pm10"].values, test_size=0.2, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(selected_samples[["latitude","longitude"]].values, 
+                                                    selected_samples["pm10"].values, test_size=0.2, random_state=42)
 
 
-# In[143]:
+# In[230]:
+
+
+X_train.shape
+
+
+# In[231]:
+
+
+X_test.shape
+
+
+# In[232]:
 
 
 # Run idw interpolator
-f = idw(X_train, y_train)
+f_idw = idw(X_train, y_train)
 
 
-# In[144]:
+# In[233]:
 
 
 for n_neighbors in range(3, MAX_NEIGHBORS):
     power_list=[]
     rmse_list=[]
     for power in POWER_RANGE:
-        predictions = f(X_test, n_neighbors = n_neighbors, power = power)
+        predictions = f_idw(X_test, n_neighbors = n_neighbors, power = power)
         rmse = mean_squared_error(y_test, predictions, squared = False)
         power_list.append(power)
         rmse_list.append(rmse)
@@ -230,9 +242,9 @@ plt.show()
 
 # We can notice that the model achieves satisfactory results for n_neighbors equal to 4 and the model is not very complex.
 
-# _We will now check which value of the power parameter will produce the best results for n_neihbors equal to 4._
+# _We will now check which value of the power parameter will produce the best results for n\_neihbors equal to 4._
 
-# In[145]:
+# In[234]:
 
 
 for n_neighbors in range(3, MAX_NEIGHBORS):
@@ -241,7 +253,7 @@ for n_neighbors in range(3, MAX_NEIGHBORS):
     print(f"n_neighbors: {n_neighbors}")
     print(f"power \t\t rmse")
     for power in POWER_RANGE:
-        predictions = f(X_test, n_neighbors = n_neighbors, power = power)
+        predictions = f_idw(X_test, n_neighbors = n_neighbors, power = power)
         rmse = mean_squared_error(y_test, predictions, squared = False)
         power_list.append(power)
         rmse_list.append(rmse)
@@ -255,4 +267,4 @@ for n_neighbors in range(3, MAX_NEIGHBORS):
     plt.show()
 
 
-# **Summing up the best interpolation result was obtained for the n-neighbors parameters equal to 4 and for the variable power equal to 0.1.**
+# **Summing up the best interpolation result was obtained for the n-neighbors parameter equal to 4 and for the variable power equal to 0.1. (RMSE equal to 8.6322)**
